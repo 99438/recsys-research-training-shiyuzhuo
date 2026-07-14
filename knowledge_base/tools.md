@@ -71,8 +71,8 @@ git commit -m "Initial commit: 初始化仓库结构"
 #### 4. 关联并推送到远程
 
 ```bash
-# 添加远程仓库（替换 <username> 为你的 GitHub 用户名）
-git remote add origin https://github.com/<username>/repo-name.git
+# 添加远程仓库
+git remote add origin https://github.com/99438/recsys-research-training-shiyuzhuo.git
 
 # 查看远程仓库配置
 git remote -v

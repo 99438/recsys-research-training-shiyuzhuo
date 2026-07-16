@@ -5,23 +5,28 @@
 根据培训课程，需要掌握的工具：
 
 ### 笔记管理
+
 - **Obsidian**：本地知识库管理（主力工具）
 - **Markdown**：基础标记语言
 
 ### 版本控制
+
 - **Git**：代码版本管理
 - **GitHub**：代码托管与协作
 
 ### 文献管理
+
 - **Zotero**：文献管理工具（第 5 次课重点）
 - **Google Scholar**：文献检索
 
 ### 开发工具
+
 - **VS Code**：代码编辑器
 - **SSH**：远程服务器连接
 - **conda**：Python 环境管理
 
 ### 其他工具
+
 - **PixPin**：截图工具
 - **AI/Agent**：辅助工具（需明确使用边界）
 
@@ -61,6 +66,7 @@ git commit -m "Initial commit: 初始化仓库结构"
 #### 3. 创建 GitHub 远程仓库
 
 在 GitHub 网站操作：
+
 1. 登录 GitHub
 2. 点击右上角 "+" → "New repository"
 3. 填写仓库名（如 `recsys-research-training-shiyuzhuo`）
@@ -199,30 +205,70 @@ Thumbs.db
 
 ## SSH 使用
 
-（还不熟悉TT，第 3 次课补充）
+### 连接前检查
+
+```powershell
+# Windows PowerShell：测试端口连通性
+Test-NetConnection 服务器IP -Port 22
+# TcpTestSucceeded : True 表示端口可访问
+```
 
 ### 连接服务器
 
 ```bash
+# 基本连接
 ssh username@server_ip
+
+# 指定端口
+ssh -p 22 username@server_ip
+
+# 首次连接会询问是否信任服务器指纹，输入 yes
 ```
 
-### 常用命令
+### 登录后常用检查命令
 
-（待补充）
+```bash
+whoami          # 当前用户名
+hostname        # 服务器主机名
+pwd             # 当前目录
+ls -lah         # 列出文件（含隐藏文件）
+```
+
+### VS Code Remote SSH
+
+**配置文件示例**（`~/.ssh/config`）：
+
+```sshconfig
+Host lab-server
+    HostName 222.198.156.91
+    User username
+    Port 22
+```
+
+**使用步骤**：
+
+1. 在 VS Code 中安装 `Remote - SSH` 扩展
+2. 命令面板 → `Remote-SSH: Connect to Host` → 选择 `lab-server`
+3. 打开远程目录，即可像本地一样编辑
+
+**排错原则**：命令行 SSH 成功后再排查 VS Code，不要因 VS Code 失败而重装服务器环境
 
 ## conda 环境管理
-
-（第 3 次课补充）
 
 ### 基本命令
 
 ```bash
 # 创建环境
-conda create -n env_name python=3.8
+conda create -n env_name python=3.10 -y
 
 # 激活环境
 conda activate env_name
+
+# 停用环境
+conda deactivate
+
+# 查看所有环境
+conda env list
 
 # 安装包
 conda install package_name
@@ -230,8 +276,191 @@ conda install package_name
 # 导出环境
 conda env export > environment.yml
 
+# 从文件恢复环境
+conda env create -f environment.yml
+
 # 删除环境
 conda remove -n env_name --all
+```
+
+### 换源（国内镜像）
+
+**配置 Conda 使用清华 TUNA**：
+
+```bash
+cat > ~/.condarc <<'EOF'
+channels:
+  - conda-forge
+  - nodefaults
+show_channel_urls: true
+channel_priority: strict
+custom_channels:
+  conda-forge: https://mirrors.tuna.tsinghua.edu.cn/anaconda/cloud
+EOF
+
+# 清理索引并检查
+conda clean -i
+conda config --show-sources
+```
+
+**配置 pip 使用清华 TUNA**：
+
+```bash
+python -m pip config set global.index-url https://pypi.tuna.tsinghua.edu.cn/simple
+python -m pip config list
+```
+
+**注意事项**：
+
+- Conda 和 pip 需要**分别配置**镜像
+- **PyTorch GPU 版本**要用官方 CUDA wheel 地址，不能用普通 PyPI 镜像
+- 不混用多个国内镜像，避免包版本冲突
+
+### PowerShell 中 conda activate 不生效的解决
+
+**现象**：`conda activate env_name` 后，Python 版本没变
+
+**原因**：PowerShell 未正确初始化 conda
+
+**解决方法**：
+
+```powershell
+# 方法一：初始化 PowerShell
+conda init powershell
+# 关闭并重新打开 PowerShell
+
+# 方法二：直接使用完整路径调用
+& "D:\anaconda\envs\env_name\python.exe" [命令]
+```
+
+## PyTorch 与 CUDA 环境
+
+### GPU 检查（nvidia-smi）
+
+```bash
+nvidia-smi
+```
+
+**关键输出**：
+
+- `Driver Version`：NVIDIA 驱动版本
+- `CUDA Version`：驱动支持的**上限**（不是当前使用的版本）
+- `Memory-Usage`：显存使用
+- `GPU-Util`：GPU 利用率
+- `Processes`：正在使用 GPU 的进程
+
+### CUDA 版本兼容性
+
+```
+NVIDIA 驱动 → 支持 CUDA 上限 → 决定可安装的 PyTorch CUDA 版本
+```
+
+**规则**：PyTorch 的 CUDA 版本 ≤ 驱动支持的 CUDA 版本
+
+**例子**：
+
+- 驱动支持 CUDA 12.6 → 可装 cu126, cu121, cu118
+- 驱动支持 CUDA 12.3 → 可装 cu121, cu118（不能装 cu126）
+
+### 安装 PyTorch
+
+```bash
+# CPU 版（约 123MB）
+python -m pip install torch==2.12.1 --index-url https://download.pytorch.org/whl/cpu
+
+# GPU 版 - CUDA 12.6（约 2.4GB）
+python -m pip install torch==2.12.1 --index-url https://download.pytorch.org/whl/cu126
+
+# GPU 版 - CUDA 12.1
+python -m pip install torch==2.5.1 --index-url https://download.pytorch.org/whl/cu121
+```
+
+### 验证 PyTorch 安装
+
+```python
+import torch
+print("PyTorch:", torch.__version__)              # 版本
+print("CUDA runtime:", torch.version.cuda)        # PyTorch 内嵌的 CUDA 版本
+print("CUDA available:", torch.cuda.is_available())  # GPU 是否可用
+print("GPU:", torch.cuda.get_device_name(0))      # GPU 型号
+print("GPU count:", torch.cuda.device_count())    # GPU 数量
+```
+
+### 常见问题
+
+**问题：`ModuleNotFoundError: No module named 'torch'`**
+
+- 原因：环境未激活，或安装失败
+- 解决：检查当前 Python 路径 `which python` / `Get-Command python`
+
+**问题：`torch.cuda.is_available()` 返回 False**
+
+- 检查是否装的是 CPU 版本（版本号后缀是 `+cpu`）
+- 检查驱动是否正常（`nvidia-smi`）
+- 重新安装 GPU 版本
+
+**问题：`Could not find a version that satisfies the requirement torch==X.Y.Z`**
+
+- 该 PyTorch 版本在指定 CUDA 源不存在
+- 查看可用版本，选择兼容版本
+
+### GPU 共享使用规范
+
+```bash
+# 1. 先检查空闲情况
+nvidia-smi
+
+# 2. 指定 GPU 编号运行（不要默认用 GPU 0）
+CUDA_VISIBLE_DEVICES=0 python train.py
+
+# 3. 持续监控 GPU
+watch -n 1 nvidia-smi
+```
+
+**注意**：
+
+- 不结束、暂停、抢占其他用户的进程
+- 显存不足时等待，不强行运行
+- 使用结束确认训练结束，不留后台进程
+
+## NAS 使用
+
+- **访问地址**：`http://10.242.0.50`
+- **登录**：使用个人 NAS 账号
+- **共享目录**：`SharedFolder` 存放课程材料
+
+**使用边界**：
+
+- ✅️ 用于数据、模型和长期共享材料
+- ❌ 不替代 Git 代码版本管理
+- ❌ 不上传 Token、密码、私钥等敏感信息
+- ❌ 不随意删除、移动、覆盖公共文件
+
+## 敏感信息管理
+
+**绝对不能放入以下位置**：
+
+| 位置         | 密码/Token/私钥 |
+| ------------ | --------------- |
+| Git 仓库     | ❌               |
+| NAS 公共目录 | ❌               |
+| 代码文件     | ❌               |
+| Notebook     | ❌               |
+| 截图         | ❌               |
+| 群聊         | ❌               |
+
+**安全操作 Token 的方式**：
+
+```bash
+# 隐藏输入 Token（终端不显示）
+read -s LAB_AGENT_TOKEN
+export LAB_AGENT_TOKEN
+
+# 只检查是否加载，不打印内容
+python -c "import os; print('Token loaded:', bool(os.getenv('LAB_AGENT_TOKEN')))"
+
+# 使用完毕清除
+unset LAB_AGENT_TOKEN
 ```
 
 ## Zotero 文献管理
@@ -242,4 +471,3 @@ conda remove -n env_name --all
 ## 常见问题记录
 
 （遇到问题后补充）
-
